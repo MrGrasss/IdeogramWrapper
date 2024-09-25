@@ -23,6 +23,7 @@ class IdeogramWrapper:
             self,
             session_cookie_token,
             prompt,
+            style="AUTO",
             user_id="-xnquyqCVSFOYTomOeUchbw",
             channel_id="LbF4xfurTryl5MUEZ73bDw",
             output_dir="images",
@@ -41,6 +42,7 @@ class IdeogramWrapper:
         self.channel_id = channel_id
         self.session_cookie_token = session_cookie_token
         self.prompt = prompt
+        self.style = style
         self.speed = speed
         self.negative_prompt = negative_prompt
         self.output_dir = output_dir
@@ -103,10 +105,10 @@ class IdeogramWrapper:
             "use_autoprompt_option": "ON",
             "negative_prompt": self.negative_prompt,
             "sampling_speed": self.speed,
-            "style_expert": "AUTO",
+            "style_expert": self.style,
             "resolution": {
-                "width": 736,
-                "height": 1312
+                "width": 1080,
+                "height": 1920
             }
         }
 
