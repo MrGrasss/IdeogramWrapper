@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from time import sleep
+from enum import Enum
 
 import requests
 import logging
@@ -7,6 +8,12 @@ import shutil
 import base64
 import os
 import re
+
+
+class Speed(Enum):
+    DEFAULT = 0
+    QUALITY = -2
+    TURBO = 2
 
 
 class IdeogramWrapper:
@@ -19,6 +26,8 @@ class IdeogramWrapper:
             user_id="-xnquyqCVSFOYTomOeUchbw",
             channel_id="LbF4xfurTryl5MUEZ73bDw",
             output_dir="images",
+            speed=Speed.QUALITY.value,
+            negative_prompt="",
             enable_logging=False,
             in_memory=True):
 
@@ -31,6 +40,8 @@ class IdeogramWrapper:
         self.channel_id = channel_id
         self.session_cookie_token = session_cookie_token
         self.prompt = prompt
+        self.speed = speed
+        self.negative_prompt = negative_prompt
         self.output_dir = output_dir
         self.enable_logging = enable_logging
         self.in_memory = in_memory
@@ -65,9 +76,11 @@ class IdeogramWrapper:
         payload = {
             "prompt": self.prompt,
             "user_id": self.user_id,
+            "private": True,
             "model_version": "V_1_5",
             "use_autoprompt_option": "ON",
-            "sampling_speed": 0,
+            "negative_prompt": self.negative_prompt,
+            "sampling_speed": self.speed,
             "style_expert": "AUTO",
             "resolution": {
                 "width": 736,
