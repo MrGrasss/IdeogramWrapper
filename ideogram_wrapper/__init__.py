@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
+import stealth_requests as requests
 from time import sleep
 from enum import Enum
 
-import requests
 import logging
 import shutil
 import base64
@@ -87,7 +87,7 @@ class IdeogramWrapper:
                 if self.enable_logging:
                     logging.info("Receiving image data...")
                 return data
-        except requests.RequestException as e:
+        except Exception as e:
             logging.error(f"An error occurred: {e}")
         return None
 
@@ -118,7 +118,7 @@ class IdeogramWrapper:
             if self.enable_logging:
                 logging.info("Generation request sent. Waiting for response...")
             self.make_get_request(request_id)
-        except requests.RequestException as e:
+        except Exception as e:
             logging.error(f"An error occurred: {e}")
 
     def make_get_request(self, request_id):
@@ -161,16 +161,16 @@ class IdeogramWrapper:
             with open(file_path, "wb") as f:
                 shutil.copyfileobj(response.raw, f)
             return file_path
-        except requests.RequestException as e:
+        except Exception as e:
             logging.error(f"An error occurred while downloading to disk: {e}")
         return None
 
     def download_image_in_memory(self, image_url, headers, cookies):
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True, proxies=self.proxy)
+            response = requests.get(image_url, headers=headers, cookies=cookies, proxies=self.proxy)
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
-        except requests.RequestException as e:
+        except Exception as e:
             logging.error(f"An error occurred while downloading in memory: {e}")
         return None
 
