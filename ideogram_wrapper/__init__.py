@@ -29,7 +29,8 @@ class IdeogramWrapper:
             speed=Speed.QUALITY.value,
             negative_prompt="",
             enable_logging=False,
-            in_memory=True):
+            in_memory=True,
+            proxy=None):
 
         if not session_cookie_token:
             raise ValueError("Session cookie token is not defined.")
@@ -46,18 +47,39 @@ class IdeogramWrapper:
         self.enable_logging = enable_logging
         self.in_memory = in_memory
         self.downloaded_images = []
+        self.proxy = proxy
 
         if self.enable_logging:
             logging.basicConfig(format='[%(asctime)s] [%(levelname)s]: %(message)s',
                                 level=logging.INFO, datefmt='%H:%M:%S')
             logging.info("IdeogramWrapper initialized.")
 
+    def post_with_retries(self, url, headers, cookies, payload, retries=5, delay=2):
+        attempt = 0
+        while attempt < retries:
+            try:
+                response = requests.post(url, headers=headers, cookies=cookies, json=payload, proxies=self.proxy)
+                response.raise_for_status()
+                return response
+            except requests.RequestException as e:
+                if self.enable_logging:
+                    logging.error(f"Attempt {attempt + 1} failed: {e}")
+                attempt += 1
+                if attempt < retries:
+                    if self.enable_logging:
+                        logging.info(f"Retrying in {delay} seconds...")
+                    sleep(delay)
+                else:
+                    if self.enable_logging:
+                        logging.error(f"Failed after {retries} attempts.")
+                    raise
+
     def fetch_generation_metadata(self, request_id):
         url = f"{self.BASE_URL}/retrieve_metadata_request_id/{request_id}"
         headers, cookies = self.get_request_params()
 
         try:
-            response = requests.get(url, headers=headers, cookies=cookies)
+            response = requests.get(url, headers=headers, cookies=cookies, proxies=self.proxy)
             response.raise_for_status()
 
             data = response.json()
@@ -89,7 +111,7 @@ class IdeogramWrapper:
         }
 
         try:
-            response = requests.post(url, headers=headers, cookies=cookies, json=payload)
+            response = self.post_with_retries(url, headers, cookies, payload, retries=10, delay=0)
             response.raise_for_status()
 
             request_id = response.json().get("request_id")
@@ -133,7 +155,7 @@ class IdeogramWrapper:
         file_path = os.path.join(self.output_dir, f"{sanitized_prompt}_{index}.jpeg")
 
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True)
+            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True, proxies=self.proxy)
             response.raise_for_status()
 
             with open(file_path, "wb") as f:
@@ -145,7 +167,7 @@ class IdeogramWrapper:
 
     def download_image_in_memory(self, image_url, headers, cookies):
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True)
+            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True, proxies=self.proxy)
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
         except requests.RequestException as e:
@@ -162,3 +184,4 @@ class IdeogramWrapper:
             "session_cookie": self.session_cookie_token
         }
         return headers, cookies
+
