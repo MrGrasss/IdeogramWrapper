@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
-import stealth_requests as requests
 from time import sleep
 from enum import Enum
 
+import stealth_requests as requests
 import logging
 import shutil
 import base64
@@ -122,6 +122,7 @@ class IdeogramWrapper:
             self.make_get_request(request_id)
         except Exception as e:
             logging.error(f"An error occurred: {e}")
+            raise
 
     def make_get_request(self, request_id):
         end_time = datetime.now() + timedelta(minutes=5)
@@ -186,4 +187,3 @@ class IdeogramWrapper:
             "session_cookie": self.session_cookie_token
         }
         return headers, cookies
-
