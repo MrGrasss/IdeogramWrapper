@@ -63,7 +63,7 @@ class IdeogramWrapper:
                 response = requests.post(url, headers=headers, cookies=cookies, json=payload, proxies=self.proxy)
                 response.raise_for_status()
                 return response
-            except requests.RequestException as e:
+            except Exception as e:
                 if self.enable_logging:
                     logging.error(f"Attempt {attempt + 1} failed: {e}")
                 attempt += 1
