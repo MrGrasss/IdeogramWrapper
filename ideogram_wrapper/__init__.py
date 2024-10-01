@@ -6,6 +6,7 @@ import stealth_requests as requests
 import logging
 import shutil
 import base64
+import json
 import os
 import re
 
@@ -64,17 +65,22 @@ class IdeogramWrapper:
                 response.raise_for_status()
                 return response
             except Exception as e:
-                if self.enable_logging:
-                    logging.error(f"Attempt {attempt + 1} failed: {e}")
-                attempt += 1
+                message = response.json().get('message')
                 if attempt < retries:
+                    if message and 'wait_time' in message:
+                        message = json.loads(message)
+                        delay = message['time_until_next_generation']
+                    else:
+                        attempt += 1
+
                     if self.enable_logging:
                         logging.info(f"Retrying in {delay} seconds...")
+
                     sleep(delay)
                 else:
                     if self.enable_logging:
-                        logging.error(f"Failed after {retries} attempts.")
-                    raise
+                        logging.error(f"Failed after {retries} attempts. Reason: {message}")
+                    raise Exception(f"Error {e}. Reason: {message}")
 
     def fetch_generation_metadata(self, request_id):
         url = f"{self.BASE_URL}/retrieve_metadata_request_id/{request_id}"
@@ -89,8 +95,12 @@ class IdeogramWrapper:
                 if self.enable_logging:
                     logging.info("Receiving image data...")
                 return data
+
+            if self.enable_logging:
+                logging.info(f"Completion percent: {data.get('completion_percentage')}")
         except Exception as e:
-            logging.error(f"An error occurred: {e}")
+            if self.enable_logging:
+                logging.error(f"An error occurred: {e}")
         return None
 
     def inference(self):
@@ -121,7 +131,8 @@ class IdeogramWrapper:
                 logging.info("Generation request sent. Waiting for response...")
             self.make_get_request(request_id)
         except Exception as e:
-            logging.error(f"An error occurred: {e}")
+            if self.enable_logging:
+                logging.error(f"An error occurred: {e}")
             raise
 
     def make_get_request(self, request_id):
@@ -174,7 +185,8 @@ class IdeogramWrapper:
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
         except Exception as e:
-            logging.error(f"An error occurred while downloading in memory: {e}")
+            if self.enable_logging:
+                logging.error(f"An error occurred while downloading in memory: {e}")
         return None
 
     def get_request_params(self):
