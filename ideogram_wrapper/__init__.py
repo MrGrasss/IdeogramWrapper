@@ -4,6 +4,7 @@ from time import sleep
 from enum import Enum
 
 import stealth_requests as requests
+import threading
 import logging
 import shutil
 import base64
@@ -13,6 +14,8 @@ import re
 
 init(autoreset=True)
 yl = Fore.YELLOW
+
+print_lock = threading.Lock()
 
 def sync_print(*args, **kwargs):
     with print_lock:
