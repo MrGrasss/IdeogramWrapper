@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+from colorama import init, Fore
 from time import sleep
 from enum import Enum
 
@@ -9,6 +10,14 @@ import base64
 import json
 import os
 import re
+
+init(autoreset=True)
+yl = Fore.YELLOW
+
+def sync_print(*args, **kwargs):
+    with print_lock:
+        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        print(f"{yl}[{timestamp}]", *args, **kwargs)
 
 
 class Speed(Enum):
@@ -75,6 +84,7 @@ class IdeogramWrapper:
 
                     if self.enable_logging:
                         logging.info(f"Retrying in {delay} seconds...")
+                        sync_print(f"Retrying in {delay} seconds...")
 
                     sleep(delay)
                 else:
@@ -94,13 +104,17 @@ class IdeogramWrapper:
             if data.get("resolution") == 1024:
                 if self.enable_logging:
                     logging.info("Receiving image data...")
+                    sync_print(f"Receiving image data...")
                 return data
 
             if self.enable_logging:
                 logging.info(f"Completion percent: {data.get('completion_percentage')}")
+                sync_print(f"Completion percent: {data.get('completion_percentage')}")
+
         except Exception as e:
             if self.enable_logging:
                 logging.error(f"An error occurred: {e}")
+                sync_print(f"An error occurred: {e}")
         return None
 
     def inference(self):
@@ -129,10 +143,12 @@ class IdeogramWrapper:
             request_id = response.json().get("request_id")
             if self.enable_logging:
                 logging.info("Generation request sent. Waiting for response...")
+                sync_print(f"Generation request sent. Waiting for response...")
             self.make_get_request(request_id)
         except Exception as e:
             if self.enable_logging:
                 logging.error(f"An error occurred: {e}")
+                sync_print(f"An error occurred: {e}")
             raise
 
     def make_get_request(self, request_id):
@@ -161,6 +177,7 @@ class IdeogramWrapper:
 
         if self.downloaded_images and self.enable_logging:
             logging.info(f"Successfully downloaded {len(self.downloaded_images)} images.")
+            sync_print(f"Successfully downloaded {len(self.downloaded_images)} images.")
 
     def download_image_to_disk(self, image_url, headers, cookies, index):
         os.makedirs(self.output_dir, exist_ok=True)
@@ -177,6 +194,7 @@ class IdeogramWrapper:
             return file_path
         except Exception as e:
             logging.error(f"An error occurred while downloading to disk: {e}")
+            sync_print(f"An error occurred while downloading to disk: {e}")
         return None
 
     def download_image_in_memory(self, image_url, headers, cookies):
@@ -187,6 +205,7 @@ class IdeogramWrapper:
         except Exception as e:
             if self.enable_logging:
                 logging.error(f"An error occurred while downloading in memory: {e}")
+                sync_print(f"An error occurred while downloading in memory: {e}")
         return None
 
     def get_request_params(self):
