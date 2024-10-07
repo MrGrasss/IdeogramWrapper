@@ -110,9 +110,10 @@ class IdeogramWrapper:
                     sync_print(f"Receiving image data...")
                 return data
 
-            if self.enable_logging:
-                logging.info(f"Completion percent: {data.get('completion_percentage')}")
-                sync_print(f"Completion percent: {data.get('completion_percentage')}")
+            percentage = data.get('completion_percentage')
+            if self.enable_logging and int(percentage) != 99:
+                logging.info(f"Completion percent: {percentage}")
+                sync_print(f"Completion percent: {percentage}")
 
         except Exception as e:
             if self.enable_logging:
