@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from colorama import init, Fore
+from curl_cffi import CurlMime
 from time import sleep
 from enum import Enum
 
@@ -8,6 +9,7 @@ import threading
 import logging
 import shutil
 import base64
+import random
 import json
 import os
 import re
@@ -37,6 +39,8 @@ class IdeogramWrapper:
             self,
             session_cookie_token,
             prompt,
+            reference_image: bytes = None,
+            weight: int = 80,
             style="AUTO",
             user_id="-xnquyqCVSFOYTomOeUchbw",
             channel_id="LbF4xfurTryl5MUEZ73bDw",
@@ -56,6 +60,8 @@ class IdeogramWrapper:
         self.channel_id = channel_id
         self.session_cookie_token = session_cookie_token
         self.prompt = prompt
+        self.reference_image: bytes = reference_image
+        self.weight = weight
         self.style = style
         self.speed = speed
         self.negative_prompt = negative_prompt
@@ -145,6 +151,26 @@ class IdeogramWrapper:
         }
 
         try:
+            if self.reference_image:
+                ref_url = f"https://ideogram.ai/api/uploads/upload"
+
+                mp = CurlMime()
+                mp.addpart(
+                    name="image",
+                    content_type="image/png",
+                    filename="image.png",
+                    data=self.reference_image.getvalue()
+                )
+
+                r = requests.post(ref_url, headers=headers, cookies=cookies, multipart=mp)
+                # ToDo fix {'message': 'No image file received'}
+                image_id = r.json().get('id')
+                payload.update({
+                    "image_id": image_id,
+                    "weight": self.weight,
+                    "type": "VARIATION"
+                })
+
             response = self.post_with_retries(url, headers, cookies, payload, retries=10, delay=0)
             request_id = response.json().get("request_id")
             if self.enable_logging:
