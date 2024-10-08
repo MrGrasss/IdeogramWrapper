@@ -40,7 +40,7 @@ class IdeogramWrapper:
             session_cookie_token,
             prompt,
             reference_image: bytes = None,
-            weight: int = 80,
+            weight: int = 65,
             style="AUTO",
             user_id="-xnquyqCVSFOYTomOeUchbw",
             channel_id="LbF4xfurTryl5MUEZ73bDw",
@@ -156,20 +156,25 @@ class IdeogramWrapper:
 
                 mp = CurlMime()
                 mp.addpart(
-                    name="image",
+                    name="file",
                     content_type="image/png",
                     filename="image.png",
-                    data=self.reference_image.getvalue()
+                    data=self.reference_image
                 )
+                upload_headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data', 'User-Agent': 'Mozilla/5.0'}
 
-                r = requests.post(ref_url, headers=headers, cookies=cookies, multipart=mp)
-                # ToDo fix {'message': 'No image file received'}
+                r = requests.post(ref_url, headers=upload_headers, cookies=cookies, multipart=mp, proxies=self.proxy)
+                r.raise_for_status()
+
                 image_id = r.json().get('id')
-                payload.update({
+                parent_payload = {
                     "image_id": image_id,
                     "weight": self.weight,
                     "type": "VARIATION"
-                })
+                }
+                payload.update({"parent": parent_payload})
+
+                mp.close()
 
             response = self.post_with_retries(url, headers, cookies, payload, retries=10, delay=0)
             request_id = response.json().get("request_id")
