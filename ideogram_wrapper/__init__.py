@@ -1,3 +1,4 @@
+from curl_cffi.requests.exceptions import Timeout, RequestException
 from datetime import datetime, timedelta
 from colorama import init, Fore
 from curl_cffi import CurlMime
@@ -9,7 +10,6 @@ import threading
 import logging
 import shutil
 import base64
-import random
 import json
 import os
 import re
@@ -154,6 +154,7 @@ class IdeogramWrapper:
             if self.reference_image:
                 ref_url = f"https://ideogram.ai/api/uploads/upload"
 
+                # Create multipart form data
                 mp = CurlMime()
                 mp.addpart(
                     name="file",
@@ -163,16 +164,39 @@ class IdeogramWrapper:
                 )
                 upload_headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data', 'User-Agent': 'Mozilla/5.0'}
 
-                r = requests.post(ref_url, headers=upload_headers, cookies=cookies, multipart=mp, proxies=self.proxy)
-                r.raise_for_status()
+                # Retry logic for curl (28) timeout error
+                attempt = 0
+                retries = 0
+                while attempt < retries:
+                    try:
+                        r = requests.post(ref_url, headers=upload_headers, cookies=cookies, multipart=mp,
+                                          proxies=self.proxy, timeout=60)
+                        r.raise_for_status()
 
-                image_id = r.json().get('id')
-                parent_payload = {
-                    "image_id": image_id,
-                    "weight": self.weight,
-                    "type": "VARIATION"
-                }
-                payload.update({"parent": parent_payload})
+                        image_id = r.json().get('id')
+                        parent_payload = {
+                            "image_id": image_id,
+                            "weight": self.weight,
+                            "type": "VARIATION"
+                        }
+                        payload.update({"parent": parent_payload})
+
+                        break
+                    except Timeout as e:
+                        if self.enable_logging:
+                            logging.warning(f"Timeout occurred (curl error 28), attempt {attempt + 1}/{retries}")
+                            sync_print(f"Timeout occurred (curl error 28), attempt {attempt + 1}/{retries}")
+                        if attempt < retries - 1:
+                            sleep(1)
+                        else:
+                            if self.enable_logging:
+                                logging.error(f"Upload failed after {retries} retries due to timeout.")
+                                sync_print(f"Upload failed after {retries} retries due to timeout.")
+                            raise e
+                    except RequestException as e:
+                        logging.error(f"An error occurred during image upload: {e}")
+                        raise e
+                    attempt += 1
 
                 mp.close()
 
