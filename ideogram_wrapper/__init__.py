@@ -1,4 +1,3 @@
-from curl_cffi.requests.exceptions import Timeout, RequestException
 from datetime import datetime, timedelta
 from colorama import init, Fore
 from curl_cffi import CurlMime
@@ -164,9 +163,9 @@ class IdeogramWrapper:
                 )
                 upload_headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data', 'User-Agent': 'Mozilla/5.0'}
 
-                # Retry logic for curl (28) timeout error
                 attempt = 0
-                retries = 0
+                retries = 3
+
                 while attempt < retries:
                     try:
                         r = requests.post(ref_url, headers=upload_headers, cookies=cookies, multipart=mp,
@@ -182,20 +181,17 @@ class IdeogramWrapper:
                         payload.update({"parent": parent_payload})
 
                         break
-                    except Timeout as e:
+                    except Exception as e:
                         if self.enable_logging:
-                            logging.warning(f"Timeout occurred (curl error 28), attempt {attempt + 1}/{retries}")
+                            logging.warning(f"Reference error: {str(e)} - {attempt + 1}/{retries}")
                             sync_print(f"Timeout occurred (curl error 28), attempt {attempt + 1}/{retries}")
                         if attempt < retries - 1:
                             sleep(1)
                         else:
                             if self.enable_logging:
-                                logging.error(f"Upload failed after {retries} retries due to timeout.")
-                                sync_print(f"Upload failed after {retries} retries due to timeout.")
+                                logging.error(f"Reference upload failed after {retries} retries due to timeout.")
+                                sync_print(f"Reference upload failed after {retries} retries due to timeout.")
                             raise e
-                    except RequestException as e:
-                        logging.error(f"An error occurred during image upload: {e}")
-                        raise e
                     attempt += 1
 
                 mp.close()
