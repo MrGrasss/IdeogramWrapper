@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from colorama import init, Fore
 from curl_cffi import CurlMime
+from typing import Literal
 from time import sleep
 from enum import Enum
 
@@ -39,16 +40,18 @@ class IdeogramWrapper:
             session_cookie_token,
             prompt,
             reference_image: bytes = None,
-            weight: int = 65,
+            weight: int = 50,
             style="AUTO",
             user_id="-xnquyqCVSFOYTomOeUchbw",
             channel_id="LbF4xfurTryl5MUEZ73bDw",
             output_dir="images",
             speed=Speed.QUALITY.value,
             negative_prompt="",
+            image_part: int = 0,
             enable_logging=False,
-            in_memory=True,
-            proxy=None):
+            in_memory=False,
+            proxy=None,
+            max_saves: Literal[1, 2, 3, 4] = 0):
 
         if not session_cookie_token:
             raise ValueError("Session cookie token is not defined.")
@@ -59,7 +62,7 @@ class IdeogramWrapper:
         self.channel_id = channel_id
         self.session_cookie_token = session_cookie_token
         self.prompt = prompt
-        self.reference_image: bytes = reference_image
+        self.reference_image = reference_image
         self.weight = weight
         self.style = style
         self.speed = speed
@@ -69,6 +72,8 @@ class IdeogramWrapper:
         self.in_memory = in_memory
         self.downloaded_images = []
         self.proxy = proxy
+        self.image_part = image_part
+        self.max_saves = max_saves
 
         if self.enable_logging:
             logging.basicConfig(format='[%(asctime)s] [%(levelname)s]: %(message)s',
@@ -153,13 +158,16 @@ class IdeogramWrapper:
             if self.reference_image:
                 ref_url = f"https://ideogram.ai/api/uploads/upload"
 
+                with open(self.reference_image, "rb") as img_file:
+                    image_data = img_file.read()
+
                 # Create multipart form data
                 mp = CurlMime()
                 mp.addpart(
                     name="file",
                     content_type="image/png",
                     filename="image.png",
-                    data=self.reference_image
+                    data=image_data
                 )
                 upload_headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data', 'User-Agent': 'Mozilla/5.0'}
 
@@ -238,16 +246,17 @@ class IdeogramWrapper:
 
     def download_image_to_disk(self, image_url, headers, cookies, index):
         os.makedirs(self.output_dir, exist_ok=True)
+        file_path = os.path.join(self.output_dir, f'image_{self.image_part}_{index}.png')
 
-        sanitized_prompt = re.sub(r'[^\w\s\'-]', '', self.prompt).replace(' ', '_')
-        file_path = os.path.join(self.output_dir, f"{sanitized_prompt}_{index}.jpeg")
+        if index >= self.max_saves:
+            return None
 
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, stream=True, proxies=self.proxy)
+            response = requests.get(image_url, headers=headers, cookies=cookies, proxies=self.proxy)
             response.raise_for_status()
 
             with open(file_path, "wb") as f:
-                shutil.copyfileobj(response.raw, f)
+                f.write(response.content)
             return file_path
         except Exception as e:
             if self.enable_logging:
@@ -256,6 +265,9 @@ class IdeogramWrapper:
             raise e
 
     def download_image_in_memory(self, image_url, headers, cookies):
+        if self.image_part > self.max_saves:
+            return None
+
         try:
             response = requests.get(image_url, headers=headers, cookies=cookies, proxies=self.proxy)
             response.raise_for_status()
