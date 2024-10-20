@@ -80,24 +80,37 @@ class IdeogramWrapper:
                                 level=logging.INFO, datefmt='%H:%M:%S')
             logging.info("IdeogramWrapper initialized.")
 
-    def post_with_retries(self, url, headers, cookies, payload, retries=5, delay=2):
+    def request_with_retries(self, method, url, headers, cookies, payload=None, retries=5, delay=2):
         attempt = 0
         while attempt < retries:
             try:
-                response = requests.post(url, headers=headers, cookies=cookies, json=payload, proxies=self.proxy)
+                if method.upper() == 'POST':
+                    response = requests.post(url, headers=headers, cookies=cookies, json=payload, proxies=self.proxy)
+                elif method.upper() == 'GET':
+                    response = requests.get(url, headers=headers, cookies=cookies, params=payload, proxies=self.proxy)
+                else:
+                    raise ValueError("Unsupported method. Use 'POST' or 'GET'.")
+
                 response.raise_for_status()
                 return response
+
             except Exception as e:
-                message = response.json().get('message')
+                message = None
+                if response and response.content:
+                    try:
+                        message = response.json().get('message')
+                    except ValueError:
+                        message = response.text
+
                 if attempt < retries:
                     if message and 'wait_time' in message:
-                        message = json.loads(message)
-                        delay = message['time_until_next_generation']
+                        message_data = json.loads(message)
+                        delay = message_data.get('time_until_next_generation', delay)
                     else:
                         attempt += 1
 
                     if delay == 0:
-                        raise e
+                        continue
 
                     if self.enable_logging:
                         logging.info(f"Retrying in {delay} seconds...")
@@ -107,14 +120,14 @@ class IdeogramWrapper:
                 else:
                     if self.enable_logging:
                         logging.error(f"Failed after {retries} attempts. Reason: {message}")
-                    raise Exception(f"Error {e}. Reason: {message}")
+                    raise Exception(f"Error: {e}. Reason: {message}")
 
     def fetch_generation_metadata(self, request_id):
         url = f"{self.BASE_URL}/retrieve_metadata_request_id/{request_id}"
         headers, cookies = self.get_request_params()
 
         try:
-            response = requests.get(url, headers=headers, cookies=cookies, proxies=self.proxy)
+            response = self.request_with_retries("GET", url, headers, cookies, retries=10, delay=0)
             response.raise_for_status()
 
             data = response.json()
@@ -172,7 +185,7 @@ class IdeogramWrapper:
                 upload_headers = {'Accept': '*/*', 'Content-Type': 'multipart/form-data', 'User-Agent': 'Mozilla/5.0'}
 
                 attempt = 0
-                retries = 3
+                retries = 5
 
                 while attempt < retries:
                     try:
@@ -204,7 +217,7 @@ class IdeogramWrapper:
 
                 mp.close()
 
-            response = self.post_with_retries(url, headers, cookies, payload, retries=10, delay=0)
+            response = self.request_with_retries("POST", url, headers, cookies, payload, retries=10, delay=0)
             request_id = response.json().get("request_id")
             if self.enable_logging:
                 logging.info("Generation request sent. Waiting for response...")
@@ -252,7 +265,7 @@ class IdeogramWrapper:
             return None
 
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, proxies=self.proxy)
+            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=0)
             response.raise_for_status()
 
             with open(file_path, "wb") as f:
@@ -269,7 +282,7 @@ class IdeogramWrapper:
             return None
 
         try:
-            response = requests.get(image_url, headers=headers, cookies=cookies, proxies=self.proxy)
+            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=0)
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
         except Exception as e:
