@@ -82,6 +82,7 @@ class IdeogramWrapper:
 
     def request_with_retries(self, method, url, headers, cookies, payload=None, retries=5, delay=2):
         attempt = 0
+        response = None  # Initialize response to None
         while attempt < retries:
             try:
                 if method.upper() == 'POST':
@@ -91,8 +92,9 @@ class IdeogramWrapper:
                 else:
                     raise ValueError("Unsupported method. Use 'POST' or 'GET'.")
 
-                response.raise_for_status()
-                return response
+                if response:
+                    response.raise_for_status()
+                    return response
 
             except Exception as e:
                 message = None
@@ -110,7 +112,7 @@ class IdeogramWrapper:
                         attempt += 1
 
                     if delay == 0:
-                        continue
+                        raise e
 
                     if self.enable_logging:
                         logging.info(f"Retrying in {delay} seconds...")
@@ -127,9 +129,7 @@ class IdeogramWrapper:
         headers, cookies = self.get_request_params()
 
         try:
-            response = self.request_with_retries("GET", url, headers, cookies, retries=10, delay=0)
-            response.raise_for_status()
-
+            response = self.request_with_retries("GET", url, headers, cookies, retries=10, delay=5)
             data = response.json()
             if data.get("resolution") == 1024:
                 if self.enable_logging:
@@ -237,7 +237,8 @@ class IdeogramWrapper:
             if image_data:
                 self.download_images(image_data.get("responses", []))
                 return
-            sleep(1)
+
+            sleep(5)
 
     def download_images(self, responses):
         headers, cookies = self.get_request_params()
@@ -265,7 +266,7 @@ class IdeogramWrapper:
             return None
 
         try:
-            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=0)
+            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=5)
             response.raise_for_status()
 
             with open(file_path, "wb") as f:
@@ -282,7 +283,7 @@ class IdeogramWrapper:
             return None
 
         try:
-            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=0)
+            response = self.request_with_retries("GET", image_url, headers, cookies, retries=10, delay=5)
             response.raise_for_status()
             return base64.b64encode(response.content).decode('utf-8')
         except Exception as e:
