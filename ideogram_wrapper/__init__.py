@@ -217,7 +217,7 @@ class IdeogramWrapper:
 
                 mp.close()
 
-            response = self.request_with_retries("POST", url, headers, cookies, payload, retries=10, delay=0)
+            response = self.request_with_retries("POST", url, headers, cookies, payload, retries=10, delay=5)
             request_id = response.json().get("request_id")
             if self.enable_logging:
                 logging.info("Generation request sent. Waiting for response...")
